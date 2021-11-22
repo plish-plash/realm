@@ -1,0 +1,21 @@
+[package]
+name = "magic"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vulkano = "0.26.0"
+vulkano-shaders = "0.26.0"
+vulkano-win = "0.26.0"
+winit = "0.25"
+
+tracing = "*"
+bevy_tasks = "0.5"
+futures-lite = "*"
+
+slotmap = "1.0"
+cgmath = "0.18"
+simdnoise = "3.1"
+building-blocks = { git = "https://github.com/bonsairobo/building-blocks", rev = "21165e0826ed85b520a22d5b3b78177d6e2b180b", features = ["cgmath"] }
