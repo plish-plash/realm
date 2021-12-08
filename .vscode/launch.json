@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'magic'",
+            "name": "Debug executable 'realm'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=magic",
-                    "--package=magic"
+                    "--bin=realm",
+                    "--package=realm"
                 ],
                 "filter": {
-                    "name": "magic",
+                    "name": "realm",
                     "kind": "bin"
                 }
             },
@@ -25,16 +25,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'magic'",
+            "name": "Debug unit tests in executable 'realm'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=magic",
-                    "--package=magic"
+                    "--bin=realm",
+                    "--package=realm"
                 ],
                 "filter": {
-                    "name": "magic",
+                    "name": "realm",
                     "kind": "bin"
                 }
             },

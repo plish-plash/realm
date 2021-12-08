@@ -1,5 +1,5 @@
 [package]
-name = "magic"
+name = "realm"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,6 +10,8 @@ vulkano = "0.26.0"
 vulkano-shaders = "0.26.0"
 vulkano-win = "0.26.0"
 winit = "0.25"
+
+combine = "4.6.2"
 
 tracing = "*"
 bevy_tasks = "0.5"

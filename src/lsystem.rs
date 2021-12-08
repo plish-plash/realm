@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-
 use building_blocks::mesh::PosNormMesh;
 use cgmath::{Deg, EuclideanSpace, InnerSpace, Point3, Quaternion, Rotation, Rotation3, Vector3, Zero};
 
+use crate::eval::{VariableScope, VariableMap, Evaluable};
 use crate::transform::{Transform, TransformExtensions};
+use crate::syntax::lsystem::*;
 
 // Constant symbols
 // F    Move forward some distance, drawing a line.
@@ -18,63 +18,112 @@ use crate::transform::{Transform, TransformExtensions};
 // }    End a polygon.
 // .    Emit a vertex (only valid inside {}).
 // G    Same as f, but for use inside {}.
-type LSymbol = char;
 
-#[derive(Clone, Debug)]
-pub struct LModule(LSymbol, Vec<f32>);
-
-macro_rules! symbol {
-    ($sym:expr) => {
-        LModule($sym, Vec::new())
-    };
-    ($sym:expr, $($param:expr),+) => {
-        LModule($sym, vec![$($param),+])
-    };
+pub struct LSymbol {
+    symbol: char,
+    params: Vec<f64>,
 }
 
-pub type LString = Vec<LModule>;
+impl LSymbol {
+    pub fn new(symbol: char) -> LSymbol {
+        LSymbol { symbol, params: Vec::new() }
+    }
+    pub fn new_params(symbol: char, params: Vec<f64>) -> LSymbol {
+        LSymbol { symbol, params }
+    }
+}
 
-struct LRule {
-    condition: Option<Box<dyn Fn(&[f32]) -> bool>>,
-    transformation: Box<dyn Fn(&[f32], &mut LString)>,
+impl std::fmt::Display for LSymbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.symbol)?;
+        if !self.params.is_empty() {
+            write!(f, "(")?;
+            VecFormatter::write(f, &self.params, ", ")?;
+            write!(f, ")")?;
+        }
+        Ok(())
+    }
+}
+
+struct VecFormatter;
+
+impl VecFormatter {
+    fn write<T: std::fmt::Display>(f: &mut std::fmt::Formatter<'_>, vec: &Vec<T>, sep: &str) -> std::fmt::Result {
+        let mut first = true;
+        for item in vec.iter() {
+            if first {
+                first = false;
+            } else {
+                write!(f, "{}", sep)?;
+            }
+            write!(f, "{}", item)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct LString(Vec<LSymbol>);
+
+impl LString {
+    fn new() -> LString {
+        LString(Vec::new())
+    }
+    pub fn iter(&self) -> std::slice::Iter<'_, LSymbol> {
+        self.0.iter()
+    }
+}
+
+impl std::fmt::Display for LString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        VecFormatter::write(f, &self.0, " ")
+    }
 }
 
 pub struct LSystem {
-    rules: HashMap<LSymbol, LRule>,
+    system: System,
     string: LString,
 }
 
 impl LSystem {
-    pub fn new() -> LSystem {
-        LSystem {
-            rules: HashMap::new(),
-            string: LString::new(),
-        }
-    }
-    pub fn add_rule<T>(&mut self, predecessor: LSymbol, transformation: T) where T: Fn(&[f32], &mut LString) + 'static {
-        self.rules.insert(predecessor, LRule { condition: None, transformation: Box::new(transformation) });
-    }
-    pub fn add_conditional_rule<C, T>(&mut self, predecessor: LSymbol, condition: C, transformation: T) where C: Fn(&[f32]) -> bool + 'static, T: Fn(&[f32], &mut LString) + 'static {
-        self.rules.insert(predecessor, LRule { condition: Some(Box::new(condition)), transformation: Box::new(transformation) });
+    pub fn new(system: System) -> LSystem {
+        LSystem { system, string: LString::new() }
     }
 
-    pub fn start(&mut self, axiom: LString) {
-        self.string = axiom;
+    fn create_local_variable_map(module: &LSymbol, production: &Production) -> VariableMap {
+        let mut map = VariableMap::new();
+        if let Some(param_names) = production.predecessor.params.as_ref() {
+            let len = module.params.len().min(param_names.len());
+            for i in 0..len {
+                map.insert(param_names[i].clone(), module.params[i]);
+            }
+        }
+        map
+    }
+
+    pub fn start(&mut self) {
+        self.string = LString(vec![LSymbol::new('0')]);
+        self.step();
     }
     pub fn step(&mut self) {
-        assert!(!self.string.is_empty());
-        let prev_string = self.string.split_off(0);
+        assert!(!self.string.0.is_empty());
+        let const_scope = VariableScope::new(&self.system.constants);
+        let prev_string = self.string.0.split_off(0);
         for module in prev_string {
-            if let Some(rule) = self.rules.get(&module.0) {
-                if let Some(condition) = &rule.condition {
-                    if !condition(&module.1) {
-                        //self.string.push(module);
-                        continue;
+            let mut found_production = false;
+            for production in self.system.productions.iter() {
+                if module.symbol != production.predecessor.symbol { continue; }
+                found_production = true;
+                let local_variables = LSystem::create_local_variable_map(&module, production);
+                let local_scope = const_scope.inner_scope(&local_variables);
+                if production.conditions.evaluate(local_scope) {
+                    for add_module in production.successor.iter() {
+                        self.string.0.push(add_module.evaluate(local_scope));
                     }
+                    break;
                 }
-                (rule.transformation)(&module.1, &mut self.string);
-            } else {
-                self.string.push(module);
+            }
+            if !found_production {
+                self.string.0.push(module);
             }
         }
     }
@@ -90,41 +139,15 @@ impl LSystem {
 }
 
 pub fn test_mesh() -> PosNormMesh {
-    // const THETA: f32 = 10.0;
-    // const STEP: f32 = 0.1;
-    // let mut lsystem = LSystem::new();
-    // lsystem.add_rule('A', |_, out| out.extend([
-    //     symbol!('['), symbol!('+', THETA), symbol!('A'), symbol!('{'), symbol!('.'), symbol!(']'), symbol!('.'), symbol!('C'), symbol!('.'), symbol!('}')
-    // ]));
-    // lsystem.add_rule('B', |_, out| out.extend([
-    //     symbol!('['), symbol!('+', -THETA), symbol!('B'), symbol!('{'), symbol!('.'), symbol!(']'), symbol!('.'), symbol!('C'), symbol!('.'), symbol!('}')
-    // ]));
-    // lsystem.add_rule('C', |_, out| out.extend([
-    //     symbol!('G', STEP), symbol!('C')
-    // ]));
-    // lsystem.start(vec![
-    //     symbol!('['), symbol!('A'), symbol!(']'), symbol!('['), symbol!('B'), symbol!(']')
-    // ]);
-
-    const THETA: f32 = 60.0;
-    const LA: f32 = 5.0 / 10.0;
-    const RA: f32 = 1.1;
-    const LB: f32 = 1.5 / 10.0;
-    const RB: f32 = 1.2;
-    const PD: f32 = 1.0;
-    let mut lsystem = LSystem::new();
-    lsystem.add_rule('A', |params, out| out.extend([
-        symbol!('G', LA, RA), symbol!('['), symbol!('+', -THETA), symbol!('B', params[0]), symbol!('.'), symbol!(']'),
-        symbol!('['), symbol!('A', params[0] + 1.0), symbol!(']'), symbol!('['), symbol!('+', THETA), symbol!('B', params[0]), symbol!('.'), symbol!(']'),
-    ]));
-    lsystem.add_conditional_rule('B', |params| params[0] > 0.0, |params, out| out.extend([
-        symbol!('G', LB, RB), symbol!('B', params[0] - PD)
-    ]));
-    lsystem.add_rule('G', |params, out| out.push(symbol!('G', params[0] * params[1], params[1])));
-    lsystem.start(vec![
-        symbol!('{'), symbol!('.'), symbol!('A', 0.0), symbol!('}')
-    ]);
-
+    let lsystem_source = include_str!("../input/system.txt");
+    let mut lsystem = match crate::syntax::parse_string(system(), lsystem_source) {
+        Ok(system) => LSystem::new(system),
+        Err(error) => {
+            println!("{}", error);
+            panic!("Failed to parse LSystem")
+        }
+    };  
+    lsystem.start();
     lsystem.step_by(20);
     TurtleInterpreter::make_mesh(lsystem.current_string())
 }
@@ -147,19 +170,20 @@ impl TurtleInterpreter {
             mesh: PosNormMesh::default(),
         };
         for module in string.iter() {
-            match module.0 {
+            match module.symbol {
                 'F' => unimplemented!(),
                 'f' => unimplemented!(),
-                '+' => interpreter.rotate_turtle(Vector3::unit_y(), Deg(module.1[0])),
-                '&' => interpreter.rotate_turtle(Vector3::unit_x(), Deg(module.1[0])),
-                '/' => interpreter.rotate_turtle(Vector3::unit_z(), Deg(module.1[0])),
+                '+' => interpreter.rotate_turtle(Vector3::unit_y(), Deg(module.params[0] as f32)),
+                '-' => interpreter.rotate_turtle(-Vector3::unit_y(), Deg(module.params[0] as f32)),
+                '&' => interpreter.rotate_turtle(Vector3::unit_x(), Deg(module.params[0] as f32)),
+                '/' => interpreter.rotate_turtle(Vector3::unit_z(), Deg(module.params[0] as f32)),
                 '|' => interpreter.rotate_turtle(Vector3::unit_y(), Deg(180.0)),
                 '[' => interpreter.stack.push(interpreter.turtle),
                 ']' => interpreter.turtle = interpreter.stack.pop().expect("mismatched ']'"),
                 '{' => interpreter.start_polygon(),
                 '}' => interpreter.end_polygon(),
                 '.' => interpreter.add_polygon_vertex(),
-                'G' => interpreter.move_turtle(module.1[0]),
+                'G' => interpreter.move_turtle(module.params[0] as f32),
                 _ => (),
             }
         }
