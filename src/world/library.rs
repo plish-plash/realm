@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use building_blocks::mesh::PosNormMesh;
-
-use crate::{color::Color, triangle_draw::{TriangleDrawSystem, TriangleMaterialHandle, TriangleMeshHandle}};
+use crate::{color::Color, triangle_draw::{TriangleDrawSystem, TriangleMaterialHandle, TriangleMeshHandle, TriangleMeshData}};
 
 type Library<T> = HashMap<String, T>;
 
@@ -64,7 +62,7 @@ fn create_cube(draw_system: &TriangleDrawSystem) -> TriangleMeshHandle {
         current_index += vertex_count;
     }
 
-    draw_system.load_mesh(PosNormMesh {
+    draw_system.load_mesh(TriangleMeshData {
         positions: positions_buffer,
         normals: normals_buffer,
         indices: indices_buffer,

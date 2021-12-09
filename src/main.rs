@@ -30,8 +30,6 @@ mod eval;
 mod frame;
 mod syntax;
 mod lsystem;
-mod sdf;
-mod terrain;
 mod triangle_draw;
 mod transform;
 mod world;

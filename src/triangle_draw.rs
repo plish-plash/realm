@@ -8,7 +8,6 @@
 // according to those terms.
 
 use std::sync::Arc;
-use building_blocks::mesh::PosNormMesh;
 use cgmath::Matrix4;
 use vulkano::buffer::BufferAccess;
 use vulkano::buffer::BufferUsage;
@@ -34,7 +33,14 @@ pub trait TriangleMesh {
     fn get_indices(&self) -> &[u32];
 }
 
-impl TriangleMesh for PosNormMesh {
+#[derive(Default)]
+pub struct TriangleMeshData {
+    pub positions: Vec<[f32; 3]>,
+    pub normals: Vec<[f32; 3]>,
+    pub indices: Vec<u32>,
+}
+
+impl TriangleMesh for TriangleMeshData {
     fn get_positions(&self) -> &[[f32; 3]] { &self.positions }
     fn get_normals(&self) -> &[[f32; 3]] { &self.normals }
     fn get_indices(&self) -> &[u32] { &self.indices }
@@ -53,8 +59,7 @@ pub struct TriangleMaterialHandle {
 
 #[derive(Clone)]
 pub struct TriangleDrawable {
-    pub mesh: TriangleMeshHandle,
-    pub material: TriangleMaterialHandle,
+    pub meshes: Vec<(TriangleMaterialHandle, TriangleMeshHandle)>,
     pub transform: Transform,
 }
 
@@ -172,16 +177,18 @@ impl TriangleDraw {
         self.builder.bind_descriptor_sets(PipelineBindPoint::Graphics, self.pipeline_layout.clone(), 0, set);
     }
     pub fn draw(&mut self, drawable: &TriangleDrawable) {
-        let index_count = drawable.mesh.index_buffer.len() as u32;
         let push_constants = vs::ty::PushConstants {
             world: Matrix4::from(drawable.transform).into(),
         };
-        self.builder
-            .bind_descriptor_sets(PipelineBindPoint::Graphics, self.pipeline_layout.clone(), 1, drawable.material.descriptor_set.clone())
-            .bind_vertex_buffers(0, drawable.mesh.vertex_buffer.clone())
-            .bind_index_buffer(drawable.mesh.index_buffer.clone())
-            .push_constants(self.pipeline_layout.clone(), 0, push_constants)
-            .draw_indexed(index_count, 1, 0, 0, 0).unwrap();
+        for (material, mesh) in drawable.meshes.iter() {
+            let index_count = mesh.index_buffer.len() as u32;
+            self.builder
+                .bind_descriptor_sets(PipelineBindPoint::Graphics, self.pipeline_layout.clone(), 1, material.descriptor_set.clone())
+                .bind_vertex_buffers(0, mesh.vertex_buffer.clone())
+                .bind_index_buffer(mesh.index_buffer.clone())
+                .push_constants(self.pipeline_layout.clone(), 0, push_constants)
+                .draw_indexed(index_count, 1, 0, 0, 0).unwrap();
+        }
     }
     pub fn finish(self) -> SecondaryAutoCommandBuffer {
         self.builder.build().unwrap()

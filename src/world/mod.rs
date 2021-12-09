@@ -1,6 +1,6 @@
 mod camera;
 mod library;
-pub mod entity;
+pub mod components;
 pub mod input;
 
 use std::time::Instant;
@@ -9,11 +9,10 @@ use cgmath::{Matrix4, One, Quaternion, Vector3};
 use winit::event::DeviceEvent;
 
 use crate::transform::{Transform, TransformExtensions};
-use crate::triangle_draw::{TriangleDraw, TriangleDrawSystem};
-use crate::terrain::{TerrainSystem, BlockyMesh};
+use crate::triangle_draw::{TriangleDraw, TriangleDrawSystem, TriangleDrawable};
 use camera::CameraSystem;
 use input::InputSystem;
-use entity::{Entity, EntitySystem, avatar::AvatarControls};
+use components::{ComponentSystem, avatar::AvatarControls};
 use library::AssetLibrary;
 
 pub trait WorldSystem {
@@ -29,9 +28,8 @@ pub struct World {
     time: WorldTime,
     input: InputSystem,
     camera: CameraSystem,
-    entities: EntitySystem,
     assets: AssetLibrary,
-    terrain: TerrainSystem<BlockyMesh>,
+    components: ComponentSystem,
 }
 
 impl World {
@@ -42,55 +40,30 @@ impl World {
             time: WorldTime { last_frame: Instant::now() },
             input: InputSystem::new(),
             camera: CameraSystem::new(draw_system.device()),
-            entities: EntitySystem::new(),
             assets,
-            terrain: TerrainSystem::new(draw_system),
+            components: ComponentSystem::default(),
         }
     }
     pub fn init(&mut self, draw_system: &TriangleDrawSystem) {
-        let cube_mesh = self.assets.get_mesh("cube").unwrap();
-        let cube_avatar = Entity {
-            mesh: cube_mesh.clone(),
-            material: self.assets.get_material("white").unwrap(),
+        let avatar = TriangleDrawable {
+            meshes: Vec::new(),
             transform: Transform::identity(),
         };
-        let cube_avatar_id = self.entities.spawn(cube_avatar);
-        self.entities.avatar_mut().insert(cube_avatar_id, AvatarControls::new_flying());
-        self.entities.avatar_mut().set_player_avatar(Some(cube_avatar_id));
+        let cube_id = self.components.drawables.add(avatar);
+        let cube_id = self.components.avatars.add(cube_id, AvatarControls::new_flying());
+        self.components.avatars.set_player_avatar(Some(cube_id));
 
-        // let cube = Entity {
-        //     mesh: cube_mesh.clone(),
-        //     material: self.assets.get_material("white").unwrap(),
-        //     transform: Transform::from_translation(Vector3::new(0.0, 0.0, 0.0)),
-        // };
-        // self.entities.spawn(cube);
-        let cube = Entity {
-            mesh: cube_mesh.clone(),
-            material: self.assets.get_material("white").unwrap(),
+        let cube_mesh = self.assets.get_mesh("cube").unwrap();
+        let cube = TriangleDrawable {
+            meshes: vec![(self.assets.get_material("white").unwrap(), cube_mesh.clone())],
             transform: Transform::from_translation(Vector3::new(4.0, 0.0, 0.0)),
         };
-        self.entities.spawn(cube);
-        let cube = Entity {
-            mesh: cube_mesh.clone(),
-            material: self.assets.get_material("white").unwrap(),
+        self.components.drawables.add(cube);
+        let cube = TriangleDrawable {
+            meshes: vec![(self.assets.get_material("white").unwrap(), cube_mesh.clone())],
             transform: Transform::from_translation(Vector3::new(-4.0, 0.0, 0.0)),
         };
-        self.entities.spawn(cube);
-
-        // let plant = Entity {
-        //     mesh: cube_mesh.clone(),
-        //     material: self.assets.get_material("green").unwrap(),
-        //     transform: Transform::new(Vector3::new(0.0, 0.0, 0.0), Quaternion::one(), 0.25),
-        // };
-        // let plant_id = self.entities.spawn(plant);
-        // self.entities.flora_mut().insert(plant_id, entity::flora::Flora::new_test());
-        let mesh = draw_system.load_mesh(crate::lsystem::test_mesh());
-        let plant = Entity {
-            mesh,
-            material: self.assets.get_material("green").unwrap(),
-            transform: Transform::new(Vector3::new(0.0, 0.0, 0.0), Quaternion::one(), 0.25),
-        };
-        self.entities.spawn(plant);
+        self.components.drawables.add(cube);
     }
     pub fn handle_device_event(&mut self, event: DeviceEvent) {
         self.input.handle_device_event(event);
@@ -99,17 +72,15 @@ impl World {
         let now = Instant::now();
         let delta_time = now.duration_since(self.time.last_frame).as_secs_f64();
         self.time.last_frame = now;
-        if let Some(avatar_controls) = self.entities.avatar_mut().player_avatar_controls_mut() {
+        if let Some(avatar_controls) = self.components.avatars.player_avatar().and_then(|id| self.components.avatars.get_mut(id)) {
             self.input.player().update_avatar(avatar_controls);
         }
-        self.terrain.update_clip_spheres(self.camera.camera_position());
-        //self.terrain.update(draw_system, delta_time);
-        self.entities.update(draw_system, delta_time);
+        self.components.update(draw_system, delta_time);
     }
     pub fn camera_frame(&mut self, viewport_dimensions: [u32; 2]) -> Matrix4<f32> {
         self.camera.set_viewport_dimensions(viewport_dimensions);
-        if let Some(avatar) = self.entities.avatar().player_avatar() {
-            self.camera.set_camera_transform(self.entities.get_transform(avatar));
+        if let Some(drawable_id) = self.components.avatars.player_avatar().and_then(|id| self.components.avatars.get_parent(id)) {
+            self.camera.set_camera_transform(self.components.drawables.get(drawable_id).unwrap().transform);
         } else {
             // TODO what should be rendered when no avatar is set?
             self.camera.set_camera_transform(Transform::identity());
@@ -118,7 +89,6 @@ impl World {
     }
     pub fn render(&mut self, renderer: &mut TriangleDraw) {
         renderer.set_camera(self.camera.frame_data());
-        self.terrain.render(renderer);
-        self.entities.render(renderer);
+        self.components.render(renderer);
     }
 }

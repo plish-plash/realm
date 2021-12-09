@@ -1,7 +1,7 @@
 use cgmath::{Vector2, Vector3};
 use winit::event::{DeviceEvent, ElementState, KeyboardInput};
 
-use super::entity::avatar::AvatarControls;
+use super::components::avatar::AvatarControls;
 
 pub struct FlyingControls {
     pub move_input: Vector3<f32>,

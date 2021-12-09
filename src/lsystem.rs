@@ -1,9 +1,9 @@
-use building_blocks::mesh::PosNormMesh;
 use cgmath::{Deg, EuclideanSpace, InnerSpace, Point3, Quaternion, Rotation, Rotation3, Vector3, Zero};
 
 use crate::eval::{VariableScope, VariableMap, Evaluable};
 use crate::transform::{Transform, TransformExtensions};
 use crate::syntax::lsystem::*;
+use crate::triangle_draw::TriangleMeshData;
 
 // Constant symbols
 // F    Move forward some distance, drawing a line.
@@ -138,7 +138,7 @@ impl LSystem {
     }
 }
 
-pub fn test_mesh() -> PosNormMesh {
+pub fn test_mesh() -> TriangleMeshData {
     let lsystem_source = include_str!("../input/system.txt");
     let mut lsystem = match crate::syntax::parse_string(system(), lsystem_source) {
         Ok(system) => LSystem::new(system),
@@ -157,17 +157,17 @@ struct TurtleInterpreter {
     stack: Vec<Transform>,
     current_polygon: Option<Vec<Point3<f32>>>,
     last_polygon_normal: Vector3<f32>,
-    mesh: PosNormMesh,
+    mesh: TriangleMeshData,
 }
 
 impl TurtleInterpreter {
-    fn make_mesh(string: &LString) -> PosNormMesh {
+    fn make_mesh(string: &LString) -> TriangleMeshData {
         let mut interpreter = TurtleInterpreter {
             turtle: Transform::from_rotation(Quaternion::look_at(Vector3::unit_y(), -Vector3::unit_z())),
             stack: Vec::new(),
             current_polygon: None,
             last_polygon_normal: Vector3::zero(),
-            mesh: PosNormMesh::default(),
+            mesh: TriangleMeshData::default(),
         };
         for module in string.iter() {
             match module.symbol {
