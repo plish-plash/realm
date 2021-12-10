@@ -12,7 +12,7 @@ use combine::{
     },
 };
 use super::spaces;
-use crate::eval::*;
+use crate::code::*;
 
 #[derive(Debug)]
 pub enum Operator {
@@ -58,7 +58,7 @@ impl Evaluable for ExpressionTerm {
     type Output = f64;
     fn evaluate(&self, scope: VariableScope) -> f64 {
         match self {
-            ExpressionTerm::Variable(var) => scope.get(var),
+            ExpressionTerm::Variable(var) => scope.get(var).expect("unknown variable in expression"),
             ExpressionTerm::Number(value) => *value,
             ExpressionTerm::Expression(expr) => expr.evaluate(scope),
         }

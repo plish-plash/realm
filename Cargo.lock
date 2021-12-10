@@ -475,6 +475,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "height-mesh"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae41eacc9fcb1a7714f809a3ec8822e0f42dadb4caf53fa2c10925a98cb5aedf"
+dependencies = [
+ "ndshape",
+]
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -696,9 +705,9 @@ checksum = "c44922cb3dbb1c70b5e5f443d63b64363a898564d739ba5198e3a9138442868d"
 
 [[package]]
 name = "ndshape"
-version = "0.2.0"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d3ed987d47ee67304e467529861ac8b3432a7d6cf9c9a14edcce1de4114b099"
+checksum = "d0bb7be9f20e8551856f2a1a157f34a364bbbdcc7c30310dd502b3acb7acf979"
 dependencies = [
  "static_assertions",
 ]
@@ -907,6 +916,7 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "combine",
+ "height-mesh",
  "ndshape",
  "slotmap",
  "tracing",

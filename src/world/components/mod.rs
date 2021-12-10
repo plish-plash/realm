@@ -1,43 +1,51 @@
 pub mod avatar;
-
-use slotmap::{DenseSlotMap, new_key_type};
+pub mod terrain;
 
 use crate::triangle_draw::{TriangleDraw, TriangleDrawable, TriangleDrawSystem};
 use avatar::AvatarComponentList;
+use terrain::TerrainComponentList;
 
-use super::WorldSystem;
+use super::Globals;
 
-new_key_type! { pub struct DrawableId; }
-
-#[derive(Default)]
-pub struct DrawableComponentList(DenseSlotMap<DrawableId, TriangleDrawable>);
-
-impl DrawableComponentList {
-    pub fn add(&mut self, component: TriangleDrawable) -> DrawableId {
-        self.0.insert(component)
-    }
-    pub fn remove(&mut self, id: DrawableId) {
-        self.0.remove(id);
-    }
-    pub fn get(&self, id: DrawableId) -> Option<&TriangleDrawable> {
-        self.0.get(id)
-    }
-    pub fn get_mut(&mut self, id: DrawableId) -> Option<&mut TriangleDrawable> {
-        self.0.get_mut(id)
-    }
+macro_rules! new_component_list_type {
+    ($list:ident, $id:ident, $comp:ident) => {
+        use slotmap::{DenseSlotMap, new_key_type};
+        new_key_type! { pub struct $id; }
+        #[derive(Default)]
+        pub struct $list(DenseSlotMap<$id, $comp>);
+        impl $list {
+            pub fn add(&mut self, component: $comp) -> $id {
+                self.0.insert(component)
+            }
+            pub fn remove(&mut self, id: $id) {
+                self.0.remove(id);
+            }
+            pub fn get(&self, id: $id) -> Option<&$comp> {
+                self.0.get(id)
+            }
+            pub fn get_mut(&mut self, id: $id) -> Option<&mut $comp> {
+                self.0.get_mut(id)
+            }
+        }
+    };
 }
+pub(crate) use new_component_list_type;
+
+new_component_list_type!(DrawableComponentList, DrawableId, TriangleDrawable);
 
 #[derive(Default)]
 pub struct ComponentSystem {
     pub drawables: DrawableComponentList,
     pub avatars: AvatarComponentList,
+    pub terrain: TerrainComponentList,
 }
 
-impl WorldSystem for ComponentSystem {
-    fn update(&mut self, draw_system: &TriangleDrawSystem, delta_time: f64) {
+impl ComponentSystem {
+    pub fn update(&mut self, globals: &Globals, draw_system: &TriangleDrawSystem, delta_time: f64) {
         self.avatars.update(&mut self.drawables, delta_time);
+        self.terrain.update(globals, draw_system, &mut self.drawables);
     }
-    fn render(&self, renderer: &mut TriangleDraw) {
+    pub fn render(&self, renderer: &mut TriangleDraw) {
         for entity in self.drawables.0.values() {
             renderer.draw(entity);
         }

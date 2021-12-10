@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{color::Color, triangle_draw::{TriangleDrawSystem, TriangleMaterialHandle, TriangleMeshHandle, TriangleMeshData}};
+use crate::{color::Color, triangle_draw::{TriangleDrawSystem, TriangleMaterialHandle, TriangleMeshHandle, TriangleMesh}};
 
 type Library<T> = HashMap<String, T>;
 
@@ -62,7 +62,7 @@ fn create_cube(draw_system: &TriangleDrawSystem) -> TriangleMeshHandle {
         current_index += vertex_count;
     }
 
-    draw_system.load_mesh(TriangleMeshData {
+    draw_system.load_mesh(TriangleMesh {
         positions: positions_buffer,
         normals: normals_buffer,
         indices: indices_buffer,

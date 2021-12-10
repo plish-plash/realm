@@ -2,7 +2,7 @@ use combine::{*, parser::{char::string, combinator::Either}};
 
 use super::{spaces, newline};
 use super::math::{compare_operator, number, variable, expression, ExpressionTerm, CompareOperator};
-use crate::eval::*;
+use crate::code::*;
 
 #[derive(Debug)]
 pub struct Symbol {
@@ -38,7 +38,7 @@ pub struct Condition {
 impl Evaluable for Condition {
     type Output = bool;
     fn evaluate(&self, scope: VariableScope) -> bool {
-        let left = scope.get(&self.left);
+        let left = scope.get(&self.left).expect("unknown variable in comparison");
         match self.op {
             CompareOperator::Less =>            left <  self.right,
             CompareOperator::LessEqual =>       left <= self.right,

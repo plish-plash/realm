@@ -26,8 +26,9 @@
 // drawn after the lighting, and that the whole process consumes more memory.
 
 mod color;
-mod eval;
+mod code;
 mod frame;
+mod mesh_generation;
 mod syntax;
 mod lsystem;
 mod triangle_draw;

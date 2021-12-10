@@ -92,12 +92,44 @@ impl ControlScheme for KeyboardFlyingControlScheme {
 }
 
 #[derive(Default)]
+pub struct SpellcastControlScheme {
+    keys: [(bool, bool); 10],
+}
+
+impl SpellcastControlScheme {
+    fn handle_device_event(&mut self, event: DeviceEvent) {
+        match event {
+            DeviceEvent::Key(KeyboardInput { scancode, state, .. }) => {
+                if scancode >= 2 && scancode <= 11 {
+                    let binding = if scancode == 11 { 0 } else { scancode - 1 };
+                    let state = state == ElementState::Pressed;
+                    let key_state = &mut self.keys[binding as usize];
+                    key_state.0 |= state && !key_state.1;
+                    key_state.1 = state;
+                }
+            }
+            _ => (),
+        }
+    }
+    pub fn get_spellcasts<'a>(&'a mut self) -> impl std::iter::Iterator<Item=u8> + 'a {
+        self.keys.iter_mut().enumerate().filter_map(|(idx, (trigger, _))| {
+            if *trigger {
+                *trigger = false;
+                Some(idx as u8)
+            } else { None }
+        })
+    }
+}
+
+#[derive(Default)]
 pub struct PlayerInput {
     active_controls: Option<Box<dyn ControlScheme>>,
+    spellcast_controls: SpellcastControlScheme,
 }
 
 impl PlayerInput {
     fn handle_device_event(&mut self, event: DeviceEvent) {
+        self.spellcast_controls.handle_device_event(event.clone());
         if let Some(controls) = &mut self.active_controls {
             controls.handle_device_event(event);
         }
@@ -113,6 +145,9 @@ impl PlayerInput {
                 AvatarControls::Flying(_, _) => self.active_controls = Some(Box::new(KeyboardFlyingControlScheme::default())),
             }
         }
+    }
+    pub fn spells(&mut self) -> &mut SpellcastControlScheme {
+        &mut self.spellcast_controls
     }
 }
 

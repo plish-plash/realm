@@ -1,9 +1,9 @@
+[workspace]
+
 [package]
 name = "realm"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tracing = "*"
@@ -15,6 +15,7 @@ winit = "0.25"
 
 slotmap = "1.0"
 cgmath = "0.18"
-ndshape = "0.2.0"
+ndshape = "0.1"
+height-mesh = "0.1"
 
 combine = "4.6.2"

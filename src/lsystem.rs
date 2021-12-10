@@ -1,9 +1,9 @@
-use cgmath::{Deg, EuclideanSpace, InnerSpace, Point3, Quaternion, Rotation, Rotation3, Vector3, Zero};
+use cgmath::{Deg, EuclideanSpace, InnerSpace, Rotation, Rotation3, Zero};
 
-use crate::eval::{VariableScope, VariableMap, Evaluable};
-use crate::transform::{Transform, TransformExtensions};
+use crate::code::{VariableScope, VariableMap, Evaluable};
+use crate::transform::{Transform, TransformExtensions, Quaternion, Point3f, Vector3f};
 use crate::syntax::lsystem::*;
-use crate::triangle_draw::TriangleMeshData;
+use crate::triangle_draw::TriangleMesh;
 
 // Constant symbols
 // F    Move forward some distance, drawing a line.
@@ -138,7 +138,7 @@ impl LSystem {
     }
 }
 
-pub fn test_mesh() -> TriangleMeshData {
+pub fn test_mesh() -> TriangleMesh {
     let lsystem_source = include_str!("../input/system.txt");
     let mut lsystem = match crate::syntax::parse_string(system(), lsystem_source) {
         Ok(system) => LSystem::new(system),
@@ -155,29 +155,29 @@ pub fn test_mesh() -> TriangleMeshData {
 struct TurtleInterpreter {
     turtle: Transform,
     stack: Vec<Transform>,
-    current_polygon: Option<Vec<Point3<f32>>>,
-    last_polygon_normal: Vector3<f32>,
-    mesh: TriangleMeshData,
+    current_polygon: Option<Vec<Point3f>>,
+    last_polygon_normal: Vector3f,
+    mesh: TriangleMesh,
 }
 
 impl TurtleInterpreter {
-    fn make_mesh(string: &LString) -> TriangleMeshData {
+    fn make_mesh(string: &LString) -> TriangleMesh {
         let mut interpreter = TurtleInterpreter {
-            turtle: Transform::from_rotation(Quaternion::look_at(Vector3::unit_y(), -Vector3::unit_z())),
+            turtle: Transform::from_rotation(Quaternion::look_at(Vector3f::unit_y(), -Vector3f::unit_z())),
             stack: Vec::new(),
             current_polygon: None,
-            last_polygon_normal: Vector3::zero(),
-            mesh: TriangleMeshData::default(),
+            last_polygon_normal: Vector3f::zero(),
+            mesh: TriangleMesh::default(),
         };
         for module in string.iter() {
             match module.symbol {
                 'F' => unimplemented!(),
                 'f' => unimplemented!(),
-                '+' => interpreter.rotate_turtle(Vector3::unit_y(), Deg(module.params[0] as f32)),
-                '-' => interpreter.rotate_turtle(-Vector3::unit_y(), Deg(module.params[0] as f32)),
-                '&' => interpreter.rotate_turtle(Vector3::unit_x(), Deg(module.params[0] as f32)),
-                '/' => interpreter.rotate_turtle(Vector3::unit_z(), Deg(module.params[0] as f32)),
-                '|' => interpreter.rotate_turtle(Vector3::unit_y(), Deg(180.0)),
+                '+' => interpreter.rotate_turtle(Vector3f::unit_y(), Deg(module.params[0] as f32)),
+                '-' => interpreter.rotate_turtle(-Vector3f::unit_y(), Deg(module.params[0] as f32)),
+                '&' => interpreter.rotate_turtle(Vector3f::unit_x(), Deg(module.params[0] as f32)),
+                '/' => interpreter.rotate_turtle(Vector3f::unit_z(), Deg(module.params[0] as f32)),
+                '|' => interpreter.rotate_turtle(Vector3f::unit_y(), Deg(180.0)),
                 '[' => interpreter.stack.push(interpreter.turtle),
                 ']' => interpreter.turtle = interpreter.stack.pop().expect("mismatched ']'"),
                 '{' => interpreter.start_polygon(),
@@ -191,9 +191,9 @@ impl TurtleInterpreter {
     }
 
     fn move_turtle(&mut self, distance: f32) {
-        self.turtle.disp += self.turtle.rot * Vector3::new(0.0, 0.0, distance);
+        self.turtle.disp += self.turtle.rot * Vector3f::new(0.0, 0.0, distance);
     }
-    fn rotate_turtle(&mut self, axis: Vector3<f32>, angle: Deg<f32>) {
+    fn rotate_turtle(&mut self, axis: Vector3f, angle: Deg<f32>) {
         self.turtle.rot = self.turtle.rot * Quaternion::from_axis_angle(axis, angle);
     }
 
@@ -211,11 +211,11 @@ impl TurtleInterpreter {
     }
     fn add_polygon_vertex(&mut self) {
         assert!(self.current_polygon.is_some(), "'.' outside of {{ }}");
-        self.current_polygon.as_mut().unwrap().push(Point3::from_vec(self.turtle.disp));
+        self.current_polygon.as_mut().unwrap().push(Point3f::from_vec(self.turtle.disp));
     }
 
-    fn surface_normal(vertices: &[Point3<f32>]) -> Vector3<f32> {
-        let mut normal = Vector3::zero();
+    fn surface_normal(vertices: &[Point3f]) -> Vector3f {
+        let mut normal = Vector3f::zero();
         for i in 0..vertices.len() {
             let current = vertices[i];
             let next = vertices[(i + 1) % vertices.len()];
@@ -225,7 +225,7 @@ impl TurtleInterpreter {
         }
         normal.normalize()
     }
-    fn add_triangle_fan(&mut self, vertices: Vec<Point3<f32>>) {
+    fn add_triangle_fan(&mut self, vertices: Vec<Point3f>) {
         fn triangulate_face(indices: &mut Vec<u32>, face_indices: std::ops::Range<usize>) {
             let start = face_indices.start as u32;
             for i in 2..(face_indices.len() as u32) {

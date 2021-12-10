@@ -27,23 +27,11 @@ use vulkano::render_pass::Subpass;
 use crate::color::Color;
 use crate::transform::Transform;
 
-pub trait TriangleMesh {
-    fn get_positions(&self) -> &[[f32; 3]];
-    fn get_normals(&self) -> &[[f32; 3]];
-    fn get_indices(&self) -> &[u32];
-}
-
 #[derive(Default)]
-pub struct TriangleMeshData {
+pub struct TriangleMesh {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
     pub indices: Vec<u32>,
-}
-
-impl TriangleMesh for TriangleMeshData {
-    fn get_positions(&self) -> &[[f32; 3]] { &self.positions }
-    fn get_normals(&self) -> &[[f32; 3]] { &self.normals }
-    fn get_indices(&self) -> &[u32] { &self.indices }
 }
 
 #[derive(Clone)]
@@ -103,12 +91,12 @@ impl TriangleDrawSystem {
         self.gfx_queue.device().clone()
     }
 
-    pub fn load_mesh<Mesh: TriangleMesh>(&self, mesh: Mesh) -> TriangleMeshHandle {
+    pub fn load_mesh(&self, mesh: TriangleMesh) -> TriangleMeshHandle {
         let vertex_buffer = CpuAccessibleBuffer::from_iter(
             self.gfx_queue.device().clone(),
             BufferUsage::all(),
             false,
-            mesh.get_positions().iter().zip(mesh.get_normals().iter()).map(|(position, normal)| {
+            mesh.positions.iter().zip(mesh.normals.iter()).map(|(position, normal)| {
                 Vertex {
                     position: *position,
                     normal: *normal,
@@ -119,7 +107,7 @@ impl TriangleDrawSystem {
             self.gfx_queue.device().clone(),
             BufferUsage::all(),
             false,
-            mesh.get_indices().iter().cloned(),
+            mesh.indices.iter().cloned(),
         ).expect("failed to create index buffer");
         TriangleMeshHandle { vertex_buffer, index_buffer }
     }
